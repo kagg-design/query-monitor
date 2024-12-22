@@ -83,7 +83,8 @@ class QM_Collector_PHP_Errors extends QM_DataCollector {
 		$prior_error = error_get_last();
 
 		// Non-fatal error handler:
-		$this->previous_error_handler = set_error_handler( array( $this, 'error_handler' ), ( E_ALL ^ QM_ERROR_FATALS ) );
+		// To support error handler chaining, we need to set our error handler with E_ALL error_levels.
+		$this->previous_error_handler = set_error_handler( array( $this, 'error_handler' ) );
 
 		// Fatal error and uncaught exception handler:
 		$this->previous_exception_handler = set_exception_handler( array( $this, 'exception_handler' ) );
@@ -176,6 +177,12 @@ class QM_Collector_PHP_Errors extends QM_DataCollector {
 	 * @return bool
 	 */
 	public function error_handler( $errno, $message, $file = null, $line = null, $context = null, $do_trace = true ) {
+		if ( $errno & QM_ERROR_FATALS ) {
+			// Do not proceed with fatal errors.
+			// phpcs:ignore PHPCompatibility.FunctionUse.ArgumentFunctionsReportCurrentValue.NeedsInspection
+			return $this->fallback_error_handler( func_get_args() );
+		}
+
 		$type = null;
 
 		/**
